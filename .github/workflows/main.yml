@@ -1,5 +1,5 @@
-# .github/workflows/rollback.yml
-name: Rollback and Rolling Update CI/CD Pipeline for React
+# .github/workflows/deploy.yml
+name: CI/CD Pipeline for React with Rolling Update
 
 on:
   push:
