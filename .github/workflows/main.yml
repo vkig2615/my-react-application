@@ -1,4 +1,3 @@
-# .github/workflows/deploy.yml
 name: CI/CD Pipeline for React with Rolling Update
 
 on:
@@ -48,11 +47,9 @@ jobs:
             echo "v3 service already exists"
           fi
 
-          # Check if the v4 service exists and update v3 with the v4 image (rolling update)
-          if ! docker service ls | grep -q "react-v4"; then
-            echo "v4 service does not exist. Creating it..."
-            docker service create --name react-v4 --replicas 2 -p 4444:80 vk2615/react-v4:$GITHUB_SHA
-          else
-            echo "Performing rolling update to v4"
-            docker service update --image vk2615/react-v4:$GITHUB_SHA react-v3
-          fi
+          # Perform rolling update to v4
+          echo "Performing rolling update to v4"
+          docker service update --image vk2615/react-v4:$GITHUB_SHA react-v3
+
+          # Optionally, check if v4 is deployed and confirm the rolling update
+          docker service ls
