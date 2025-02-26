@@ -1,4 +1,5 @@
-name: Rolling Update CI/CD Pipeline for React
+# .github/workflows/rollback.yml
+name: Rollback and Rolling Update CI/CD Pipeline for React
 
 on:
   push:
@@ -6,7 +7,7 @@ on:
       - main  # Trigger on push to the main branch
 
 jobs:
-  build-and-deploy:
+  deploy-and-rollback:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,17 +20,39 @@ jobs:
     - name: Login to DockerHub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Build and push Docker images for v3 (if v3 is being deployed)
-      if: github.event.head_commit.message != 'Deploy v4'  # Only run if v4 is not mentioned
+    - name: Build and push Docker image for v3
       run: |
         docker build -t vk2615/react-v3:$GITHUB_SHA -f ./react-v3/Dockerfile ./react-v3
         docker push vk2615/react-v3:$GITHUB_SHA
 
-    - name: Build and push Docker images for v4 (if v4 is being deployed)
-      if: github.event.head_commit.message == 'Deploy v4'  # Only run if v4 is being deployed
+    - name: Build and push Docker image for v4
       run: |
         docker build -t vk2615/react-v4:$GITHUB_SHA -f ./react-v4/Dockerfile ./react-v4
         docker push vk2615/react-v4:$GITHUB_SHA
+
+    - name: SSH into server and deploy to Docker Swarm
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          # Check if the v3 service exists and deploy it if not
+          if ! docker service ls | grep -q "react-v3"; then
+            echo "Creating v3 service"
+            docker service create --name react-v3 --replicas 2 -p 4444:80 vk2615/react-v3:$GITHUB_SHA
+          else
+            echo "v3 service already exists"
+          fi
+
+          # Check if the v4 service exists and update v3 with the v4 image (rolling update)
+          if ! docker service ls | grep -q "react-v4"; then
+            echo "v4 service does not exist. Creating it..."
+            docker service create --name react-v4 --replicas 2 -p 4444:80 vk2615/react-v4:$GITHUB_SHA
+          else
+            echo "Performing rolling update to v4"
+            docker service update --image vk2615/react-v4:$GITHUB_SHA react-v3
+          fi
