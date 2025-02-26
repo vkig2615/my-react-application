@@ -46,7 +46,7 @@ jobs:
           # Check if the v3 service exists and deploy it if not
           if ! docker service ls | grep -q "react-v3"; then
             echo "Creating v3 service"
-            docker service create --name react-v3 --replicas 2 -p 4444:80 vk2615/react-v3:latest
+            docker service create --name react-v3 --replicas 2 -p 8888:80 vk2615/react-v3:latest
           else
             echo "v3 service already exists"
           fi
