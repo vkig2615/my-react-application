@@ -51,7 +51,7 @@ jobs:
           else
             echo "v3 service does not exist, creating it"
             # If v3 service doesn't exist, create it
-            docker service create --name react-v3 --replicas 2 -p 8081:80 vk2615/react-v3:latest
+            docker service create --name react-v3 --replicas 2 --publish 8081:80 vk2615/react-v3:latest
           fi
 
           # Optionally, you can verify the rollback by checking the service
