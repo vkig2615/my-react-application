@@ -26,35 +26,20 @@ jobs:
       run: |
         docker build -t vk2615/react-v3:latest -f ./react-v3/Dockerfile ./react-v3
         docker push vk2615/react-v3:latest
-
-    - name: SSH into server and deploy to Docker Swarm (v3 with ingress)
+    - name: SSH into server and deploy to Docker Swarm (v3 only)
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Ensure Docker Swarm is initialized
-          docker info | grep -q "Swarm: active" || docker swarm init
-
-          # Create ingress network if it doesn't exist
-          if ! docker network ls | grep -q "react-ingress"; then
-            docker network create --driver overlay --ingress react-ingress
-          fi
-
           # Pull the latest image for v3 from DockerHub
           docker pull vk2615/react-v3:latest
-
           # Check if the v3 service exists, create it if not
           if ! docker service ls | grep -q "react-v3"; then
-            echo "Creating v3 service on custom ingress network"
-            docker service create \
-              --name react-v3 \
-              --replicas 2 \
-              --network react-ingress \
-              --publish published=8080,target=80,mode=ingress \
-              vk2615/react-v3:latest
+            echo "Creating v3 service on port 8080"
+            docker service create --name react-v3 --replicas 2 -p 8080:80 vk2615/react-v3:latest
           else
-            echo "Updating v3 service"
+            echo "v3 service already exists, updating it"
             docker service update --image vk2615/react-v3:latest react-v3
-          fi
+          fi 
