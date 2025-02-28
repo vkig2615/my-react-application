@@ -6,7 +6,7 @@ on:
       - main  # Trigger on push to the main branch
 
 jobs:
-  build-and-deploy-v3-to-v4-rollback-to-v3:
+  build-and-deploy-v3-to-v4:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
       run: |
         docker build -t vk2615/react-v4:latest -f ./react-v4/Dockerfile ./react-v4
         docker push vk2615/react-v4:latest
-    - name: SSH into server and perform rollback to v3
+    - name: SSH into server and deploy to Docker Swarm (rolling update v3 to v4)
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -40,16 +40,16 @@ jobs:
           # Pull the latest image for v3 and v4 from DockerHub
           docker pull vk2615/react-v3:latest
           docker pull vk2615/react-v4:latest
-          # Check if the v3 service exists
+          # Check if the v3 service is running
           if docker service ls | grep -q "react-v3"; then
-            echo "v3 service exists, rolling back to v3"
-            # Perform rolling update back to v3
-            docker service update --image vk2615/react-v3:latest react-v3
+            echo "v3 service exists, updating it to v4"
+            # Perform rolling update to v4
+            docker service update --image vk2615/react-v4:latest react-v3
           else
             echo "v3 service does not exist, creating it"
             # If v3 service doesn't exist, create it
             docker service create --name react-v3 --replicas 2 -p 8080:80 vk2615/react-v3:latest
           fi
-          # Optionally, you can verify the rollback by checking the service
-          echo "Rollback complete. Verifying the service update..."
+          # Optionally, you can verify the update by checking the service
+          echo "Rolling update complete. Verifying the service update..."
           docker service ls
