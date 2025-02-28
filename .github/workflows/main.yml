@@ -6,7 +6,7 @@ on:
       - main  # Trigger on push to the main branch
 
 jobs:
-  build-and-deploy-v3:
+  build-and-deploy-v3-to-v4:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,20 +26,30 @@ jobs:
       run: |
         docker build -t vk2615/react-v3:latest -f ./react-v3/Dockerfile ./react-v3
         docker push vk2615/react-v3:latest
-    - name: SSH into server and deploy to Docker Swarm (v3 only)
+    - name: Build and push Docker image for v4
+      run: |
+        docker build -t vk2615/react-v4:latest -f ./react-v4/Dockerfile ./react-v4
+        docker push vk2615/react-v4:latest
+    - name: SSH into server and deploy to Docker Swarm (rolling update v3 to v4)
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # Pull the latest image for v3 from DockerHub
+          # Pull the latest image for v3 and v4 from DockerHub
           docker pull vk2615/react-v3:latest
-          # Check if the v3 service exists, create it if not
-          if ! docker service ls | grep -q "react-v3"; then
-            echo "Creating v3 service on port 8080"
-            docker service create --name react-v3 --replicas 2 --publish 8080:80 vk2615/react-v3:latest
+          docker pull vk2615/react-v4:latest
+          # Check if the v3 service is running
+          if docker service ls | grep -q "react-v3"; then
+            echo "v3 service exists, updating it to v4"
+            # Perform rolling update to v4
+            docker service update --image vk2615/react-v4:latest react-v3
           else
-            echo "v3 service already exists, updating it"
-            docker service update --image vk2615/react-v3:latest react-v3
-          fi 
+            echo "v3 service does not exist, creating it"
+            # If v3 service doesn't exist, create it
+            docker service create --name react-v3 --replicas 2 -p 8080:80 vk2615/react-v3:latest
+          fi
+          # Optionally, you can verify the update by checking the service
+          echo "Rolling update complete. Verifying the service update..."
+          docker service ls
